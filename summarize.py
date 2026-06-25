@@ -11,8 +11,8 @@ IST = ZoneInfo("Asia/Kolkata")
 
 # ====== EDIT THESE: your 2 groups ======
 GROUPS = [
-    {"id": "g1", "name": "CFA L1 Online 2025/2026", "chat": -1003692335693},
-    {"id": "g2", "name": "SSEI",  "chat": -1001456537902},
+    {"id": "g1", "name": "CFA L1 Online 2025/2026", "icon": "📈", "chat": -1003692335693},
+    {"id": "g2", "name": "SSEI", "icon": "🎓", "chat": -1001456537902},
 ]
 # =======================================
 
