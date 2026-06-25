@@ -11,8 +11,8 @@ IST = ZoneInfo("Asia/Kolkata")
 
 # ====== EDIT THESE: your 2 groups ======
 GROUPS = [
-    {"id": "g1", "name": "CFA L1 Online 2025/2026", "icon": "", "chat": -1003692335693},
-    {"id": "g2", "name": "SSEI", "icon": "", "chat": -1001456537902},
+    {"id": "g1", "name": "CFA Level 1 — Notes",    "icon": "📈", "chat": -1001234567890},
+    {"id": "g2", "name": "CFA Level 1 — Homework",  "icon": "📚", "chat": -1009876543210},
 ]
 # =======================================
 
@@ -24,47 +24,21 @@ ai = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 PROMPT = """You are summarizing messages from an admin-only study group.
 Every message is important (class material, homework, announcements).
+Today's date is {today}. Use it to turn relative deadlines ("Friday", "tomorrow") into real dates.
 Return ONLY valid JSON, no prose, no markdown fences, exactly this shape:
 {{
   "highlights": [{{"rank": 1, "text": "...", "tag": "Important|Update|Material"}}],
-  "actions":    [{{"text": "what to do/submit", "due": "short e.g. Tomorrow / Jun 29 / Mon", "urgent": true}}],
+  "actions":    [{{"text": "what to do/submit", "due": "short label e.g. Tomorrow / Jun 29 / Mon", "dueDate": "YYYY-MM-DD or empty string", "urgent": true}}],
   "links":      [{{"label": "human label", "url": "the link or # if it was a file"}}]
 }}
 Rank highlights most-important first. Mark a deadline within ~24h as urgent:true.
+"dueDate" MUST be ISO format YYYY-MM-DD (used for sorting); if no clear date, use "".
 Group name: {name}
 Messages (oldest first):
 {messages}"""
 
-def summarize(name, msgs):
-    if not msgs:
-        return {"highlights": [], "actions": [], "links": []}
-    joined = "\n".join(f"[{m['time']}] {m['text']}" for m in msgs)
-    r = ai.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=1500,
-        messages=[{"role": "user", "content": PROMPT.format(name=name, messages=joined)}],
-    )
-    text = r.content[0].text.strip()
-    text = re.sub(r"^```json|^```|```$", "", text, flags=re.MULTILINE).strip()
-    try:
-        return json.loads(text)
-    except Exception:
-        return {"highlights": [], "actions": [], "links": []}
-
-def encrypt(text, passphrase):
-    salt = os.urandom(16)
-    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=200000)
-    key = kdf.derive(passphrase.encode())
-    iv = os.urandom(12)
-    ct = AESGCM(key).encrypt(iv, text.encode(), None)
-    return {
-        "salt": base64.b64encode(salt).decode(),
-        "iv":   base64.b64encode(iv).decode(),
-        "data": base64.b64encode(ct).decode(),
-    }
-
-NEWS_PROMPT = """Search the web for the most important and recent financial and economic news from the last 24 hours, covering both India and the world (markets, economy, policy, major companies, RBI/Fed, etc.).
-Pick the top 6-8 stories. For each, write a 1-2 sentence summary in your OWN words (do not copy article text).
+NEWS_PROMPT = """Search the web for the most important and recent financial, economic, and FINTECH news from the last 24 hours, covering both India and the world (markets, economy, policy, major companies, RBI/Fed, plus fintech: UPI, digital payments, neobanks, lending startups, crypto/digital assets, fintech regulation). Ensure at least 2-3 of the chosen stories are fintech-specific.
+Pick the top 6-8 stories. For each, write a 1-2 sentence summary in your OWN words (do not copy article text). Include a working source URL.
 Score each 1-10 on:
 - virality: how widely it is being discussed/shared right now
 - credibility: reliability of the reporting sources
@@ -72,6 +46,23 @@ Score each 1-10 on:
 Set overall = average of the three, one decimal.
 Return ONLY a JSON object (no prose, no markdown fences), sorted by overall descending:
 {"news":[{"headline":"...","summary":"...","region":"India or World","source":"e.g. Reuters","url":"https://...","scores":{"virality":8,"credibility":9,"importance":7},"overall":8.0}]}"""
+
+def summarize(name, msgs):
+    if not msgs:
+        return {"highlights": [], "actions": [], "links": []}
+    today = datetime.datetime.now(IST).strftime("%Y-%m-%d (%A)")
+    joined = "\n".join(f"[{m['time']}] {m['text']}" for m in msgs)
+    r = ai.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=1500,
+        messages=[{"role": "user", "content": PROMPT.format(name=name, today=today, messages=joined)}],
+    )
+    text = r.content[0].text.strip()
+    text = re.sub(r"^```json|^```|```$", "", text, flags=re.MULTILINE).strip()
+    try:
+        return json.loads(text)
+    except Exception:
+        return {"highlights": [], "actions": [], "links": []}
 
 def fetch_news():
     try:
@@ -87,6 +78,18 @@ def fetch_news():
     except Exception as e:
         print("News fetch failed:", e)
         return []
+
+def encrypt(text, passphrase):
+    salt = os.urandom(16)
+    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=200000)
+    key = kdf.derive(passphrase.encode())
+    iv = os.urandom(12)
+    ct = AESGCM(key).encrypt(iv, text.encode(), None)
+    return {
+        "salt": base64.b64encode(salt).decode(),
+        "iv":   base64.b64encode(iv).decode(),
+        "data": base64.b64encode(ct).decode(),
+    }
 
 def main():
     since = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=24)
