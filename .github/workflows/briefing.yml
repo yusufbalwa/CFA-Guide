@@ -1,7 +1,7 @@
 name: Morning Briefing
 on:
   schedule:
-    - cron: "0 3 * * *"     # 03:00 UTC = 08:30 AM IST
+    - cron: "30 3 * * *"     # 03:30 UTC = 09:00 AM IST
   workflow_dispatch:          # lets you also run it manually with one click
 
 permissions:
@@ -22,6 +22,7 @@ jobs:
           TG_API_HASH: ${{ secrets.TG_API_HASH }}
           TG_SESSION: ${{ secrets.TG_SESSION }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          BRIEFING_PIN: ${{ secrets.BRIEFING_PIN }}
       - name: Save the briefing
         run: |
           git config user.name "briefing-bot"
