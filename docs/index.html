@@ -113,39 +113,54 @@ function card(g){
     </div></div>`;
 }
 
+function newsItem(n, last){
+  const region = (n.region||"").toLowerCase().includes("india")
+    ? '<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">🇮🇳 India</span>'
+    : '<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">🌍 World</span>';
+  const sc = n.scores || {};
+  const ov = (typeof n.overall === "number") ? n.overall.toFixed(1) : esc(String(n.overall||""));
+  return `<div class="py-3 ${last ? '' : 'border-b border-gray-100 dark:border-gray-700'}">
+    <div class="flex gap-3 items-start">
+      <div class="shrink-0 w-9 text-center">
+        <div class="text-base font-bold text-indigo-600 dark:text-indigo-400">${ov}</div>
+        <div class="text-[9px] text-gray-400 -mt-0.5">score</div>
+      </div>
+      <div class="flex-1 min-w-0">
+        <a href="${esc(n.url)}" target="_blank" rel="noopener" class="text-sm font-semibold text-gray-800 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 leading-snug">${esc(n.headline)}</a>
+        <div class="flex items-center gap-2 mt-1 flex-wrap">${region}<span class="text-[10px] text-gray-400 dark:text-gray-500">${esc(n.source)}</span></div>
+        <p class="text-sm text-gray-600 dark:text-gray-300 leading-snug mt-1">${esc(n.summary)}</p>
+        <div class="flex items-center justify-between mt-1.5">
+          <div class="flex gap-3 text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+            <span title="Virality">🔥 ${sc.virality ?? "–"}</span>
+            <span title="Credibility">✓ ${sc.credibility ?? "–"}</span>
+            <span title="Importance">★ ${sc.importance ?? "–"}</span>
+          </div>
+          <a href="${esc(n.url)}" target="_blank" rel="noopener" class="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline">Read →</a>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function newsSection(title, items){
+  if(!items.length) return "";
+  const rows = items.map((n,i) => newsItem(n, i === items.length-1)).join("");
+  return `<div><h3 class="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide pt-3 pb-1">${title}</h3>${rows}</div>`;
+}
+
 function renderNews(news){
   let body;
   if(!news || !news.length){
     body = `<p class="text-sm text-gray-400 dark:text-gray-500 text-center py-6">No financial news today.</p>`;
   } else {
-    body = news.map((n,i) => {
-      const region = (n.region||"").toLowerCase().includes("india")
-        ? '<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">🇮🇳 India</span>'
-        : '<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">🌍 World</span>';
-      const sc = n.scores || {};
-      const ov = (typeof n.overall === "number") ? n.overall.toFixed(1) : esc(String(n.overall||""));
-      return `<div class="py-3 ${i < news.length-1 ? 'border-b border-gray-100 dark:border-gray-700' : ''}">
-        <div class="flex gap-3 items-start">
-          <div class="shrink-0 w-9 text-center">
-            <div class="text-base font-bold text-indigo-600 dark:text-indigo-400">${ov}</div>
-            <div class="text-[9px] text-gray-400 -mt-0.5">score</div>
-          </div>
-          <div class="flex-1 min-w-0">
-            <a href="${esc(n.url)}" target="_blank" rel="noopener" class="text-sm font-semibold text-gray-800 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 leading-snug">${esc(n.headline)}</a>
-            <div class="flex items-center gap-2 mt-1 flex-wrap">${region}<span class="text-[10px] text-gray-400 dark:text-gray-500">${esc(n.source)}</span></div>
-            <p class="text-sm text-gray-600 dark:text-gray-300 leading-snug mt-1">${esc(n.summary)}</p>
-            <div class="flex items-center justify-between mt-1.5">
-              <div class="flex gap-3 text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                <span title="Virality">🔥 ${sc.virality ?? "–"}</span>
-                <span title="Credibility">✓ ${sc.credibility ?? "–"}</span>
-                <span title="Importance">★ ${sc.importance ?? "–"}</span>
-              </div>
-              <a href="${esc(n.url)}" target="_blank" rel="noopener" class="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline">Read →</a>
-            </div>
-          </div>
-        </div>
-      </div>`;
-    }).join("");
+    const byScore = (a,b) => (b.overall||0) - (a.overall||0);
+    const fintech = news.filter(n => (n.category||"").toLowerCase().includes("fintech")).sort(byScore);
+    const finance = news.filter(n => !(n.category||"").toLowerCase().includes("fintech")).sort(byScore);
+    if(!fintech.length && !finance.length){
+      body = news.map((n,i) => newsItem(n, i === news.length-1)).join("");
+    } else {
+      body = newsSection("💳 Top Fintech", fintech) + newsSection("📊 Top Finance", finance);
+    }
   }
   return `<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-5">
     <div class="px-5 pt-5 pb-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-emerald-50 to-white dark:from-gray-800 dark:to-gray-800 flex items-center justify-between">
