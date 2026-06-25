@@ -5,15 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CFA Guide</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = { darkMode: 'class' };
+  if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
+</script>
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-50 dark:bg-gray-900">
 <div id="gate" class="min-h-screen flex flex-col items-center justify-center px-4">
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 w-full max-w-xs text-center">
+  <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 w-full max-w-xs text-center">
     <div class="text-3xl mb-2">🔒</div>
-    <h1 class="text-lg font-bold text-gray-800 mb-1">CFA Guide</h1>
-    <p class="text-sm text-gray-500 mb-4">Enter your PIN</p>
+    <h1 class="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">CFA Guide</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Enter your PIN</p>
     <input id="pin" type="password" inputmode="numeric" autocomplete="off"
-      class="w-full text-center text-lg tracking-widest border border-gray-200 rounded-xl px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+      class="w-full text-center text-lg tracking-widest border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-xl px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-300" />
     <p id="pinErr" class="text-xs text-red-500 mb-3 h-4"></p>
     <button id="pinBtn" class="w-full bg-indigo-500 text-white font-semibold rounded-xl py-2 hover:bg-indigo-600">Unlock</button>
   </div>
@@ -22,138 +26,156 @@
   <p class="text-center text-gray-400 mt-16">Loading your briefing…</p>
 </div>
 <script>
-// --- Decryption (parameters match the encrypt() in summarize.py) ---
+// --- Decryption (parameters match encrypt() in summarize.py) ---
 function b64ToBytes(b64){ return Uint8Array.from(atob(b64), c => c.charCodeAt(0)); }
-
 async function deriveKey(pin, salt){
-  const baseKey = await crypto.subtle.importKey(
-    "raw", new TextEncoder().encode(pin), "PBKDF2", false, ["deriveKey"]);
-  return crypto.subtle.deriveKey(
-    { name:"PBKDF2", salt, iterations:200000, hash:"SHA-256" },
-    baseKey, { name:"AES-GCM", length:256 }, false, ["decrypt"]);
+  const baseKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(pin), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name:"PBKDF2", salt, iterations:200000, hash:"SHA-256" }, baseKey, { name:"AES-GCM", length:256 }, false, ["decrypt"]);
 }
-
 async function decryptBriefing(pin){
   const env = await fetch("briefing.json?t=" + Date.now()).then(r => r.json());
   const key = await deriveKey(pin, b64ToBytes(env.salt));
-  const plain = await crypto.subtle.decrypt(
-    { name:"AES-GCM", iv: b64ToBytes(env.iv) }, key, b64ToBytes(env.data));
+  const plain = await crypto.subtle.decrypt({ name:"AES-GCM", iv: b64ToBytes(env.iv) }, key, b64ToBytes(env.data));
   return JSON.parse(new TextDecoder().decode(plain));
 }
-
 function reveal(){
   document.getElementById("gate").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
 }
-
 async function tryPin(){
   const pin = document.getElementById("pin").value;
   document.getElementById("pinErr").textContent = "Checking…";
-  try {
-    const b = await decryptBriefing(pin);
-    sessionStorage.setItem("pin", pin);
-    reveal();
-    renderBriefing(b);
-  } catch (e) {
-    document.getElementById("pinErr").textContent = "Couldn't unlock — wrong PIN, or no briefing yet.";
-  }
+  try { const b = await decryptBriefing(pin); sessionStorage.setItem("pin", pin); reveal(); renderBriefing(b); }
+  catch (e) { document.getElementById("pinErr").textContent = "Couldn't unlock — wrong PIN, or no briefing yet."; }
 }
-
 document.getElementById("pinBtn").addEventListener("click", tryPin);
 document.getElementById("pin").addEventListener("keydown", e => { if (e.key === "Enter") tryPin(); });
-
 (async () => {
   const saved = sessionStorage.getItem("pin");
-  if (saved) {
-    try { const b = await decryptBriefing(saved); reveal(); renderBriefing(b); }
-    catch (e) { sessionStorage.removeItem("pin"); }
-  }
+  if (saved) { try { const b = await decryptBriefing(saved); reveal(); renderBriefing(b); } catch (e) { sessionStorage.removeItem("pin"); } }
 })();
+
+// --- Theme + To-do toggles ---
+function toggleTheme(){
+  const dark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+  document.querySelectorAll('.theme-icon').forEach(el => el.textContent = dark ? '☀️' : '🌙');
+}
+function toggleTodos(){ document.getElementById('todoPanel').classList.toggle('hidden'); }
 
 // --- Rendering ---
 const tagColor = t => ({Important:"bg-red-100 text-red-700",Update:"bg-amber-100 text-amber-700",Material:"bg-blue-100 text-blue-700"}[t]||"bg-gray-100 text-gray-600");
 const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
-function stat(n,l,c){return `<div class="bg-white rounded-xl border border-gray-100 px-3 py-3 text-center shadow-sm"><div class="text-xl font-bold ${c}">${n}</div><div class="text-[11px] text-gray-500 mt-0.5">${l}</div></div>`;}
+function stat(n,l,c,extra){return `<div ${extra||""} class="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 px-3 py-3 text-center shadow-sm"><div class="text-xl font-bold ${c}">${n}</div><div class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">${l}</div></div>`;}
+
+function buildTodos(b){
+  const todos = [];
+  (b.groups||[]).forEach(g => (g.actions||[]).forEach(a => todos.push(Object.assign({}, a, {group:g.name, icon:g.icon}))));
+  todos.sort((x,y) => (x.dueDate||"9999-12-31").localeCompare(y.dueDate||"9999-12-31"));
+  if(!todos.length) return `<p class="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No homework due right now 🎉</p>`;
+  return todos.map(t => `<div class="flex items-start gap-3 py-2.5 border-b border-gray-100 dark:border-gray-700 last:border-0">
+      <span class="shrink-0 text-[11px] font-semibold px-2 py-1 rounded-lg ${t.urgent?'bg-red-100 text-red-600':'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}">${t.urgent?'⚠ ':''}${esc(t.due)}</span>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm text-gray-700 dark:text-gray-200 leading-snug">${esc(t.text)}</p>
+        <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">${esc(t.icon||"")} ${esc(t.group)}</p>
+      </div>
+    </div>`).join("");
+}
 
 function card(g){
   const empty = !(g.highlights?.length||g.actions?.length||g.links?.length||g.log?.length);
   const highlights = (g.highlights||[]).map(h=>`
     <div class="flex gap-3 items-start mb-2">
       <span class="shrink-0 mt-0.5 w-5 h-5 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">${h.rank||"•"}</span>
-      <div><p class="text-sm text-gray-700 leading-snug">${esc(h.text)}</p>
+      <div><p class="text-sm text-gray-700 dark:text-gray-200 leading-snug">${esc(h.text)}</p>
       <span class="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${tagColor(h.tag)}">${esc(h.tag)}</span></div>
     </div>`).join("");
   const actions = (g.actions||[]).map(a=>`
-    <div class="flex items-start gap-3 bg-gray-50 rounded-xl px-3 py-2.5 mb-2">
-      <p class="flex-1 text-sm text-gray-700 leading-snug">${esc(a.text)}</p>
-      <span class="shrink-0 text-[11px] font-semibold px-2 py-1 rounded-lg ${a.urgent?'bg-red-100 text-red-600':'bg-gray-200 text-gray-600'}">${a.urgent?'⚠ ':''}${esc(a.due)}</span>
+    <div class="flex items-start gap-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl px-3 py-2.5 mb-2">
+      <p class="flex-1 text-sm text-gray-700 dark:text-gray-200 leading-snug">${esc(a.text)}</p>
+      <span class="shrink-0 text-[11px] font-semibold px-2 py-1 rounded-lg ${a.urgent?'bg-red-100 text-red-600':'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-200'}">${a.urgent?'⚠ ':''}${esc(a.due)}</span>
     </div>`).join("");
-  const links = (g.links||[]).map(l=>`<a href="${esc(l.url)}" class="flex items-center gap-2 text-sm text-blue-600 hover:underline mb-1.5">🔗 <span class="truncate">${esc(l.label)}</span></a>`).join("");
-  const log = (g.log||[]).map(m=>`<div class="pl-3 mb-3"><span class="text-[11px] font-medium text-gray-400">${esc(m.time)}</span><p class="text-sm text-gray-700 leading-snug">${esc(m.text)}</p></div>`).join("");
-  const sec=(title,body)=> body?`<div class="mb-5"><h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2.5">${title}</h3>${body}</div>`:"";
-  return `<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-5">
-    <div class="px-5 pt-5 pb-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-white flex items-center justify-between">
-      <h2 class="text-base font-bold text-gray-800 flex items-center gap-2 min-w-0"><span class="text-2xl">${g.icon||"💬"}</span><span class="truncate">${esc(g.name)}</span></h2>
-      <span class="shrink-0 text-xs font-medium text-indigo-500 bg-indigo-50 px-2.5 py-1 rounded-full">${g.msgCount||0} msgs</span>
+  const links = (g.links||[]).map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noopener" class="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline mb-1.5">🔗 <span class="truncate">${esc(l.label)}</span></a>`).join("");
+  const log = (g.log||[]).map(m=>`<div class="pl-3 mb-3"><span class="text-[11px] font-medium text-gray-400 dark:text-gray-500">${esc(m.time)}</span><p class="text-sm text-gray-700 dark:text-gray-200 leading-snug">${esc(m.text)}</p></div>`).join("");
+  const sec=(title,body)=> body?`<div class="mb-5"><h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-2.5">${title}</h3>${body}</div>`:"";
+  return `<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-5">
+    <div class="px-5 pt-5 pb-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-indigo-50 to-white dark:from-gray-800 dark:to-gray-800 flex items-center justify-between">
+      <h2 class="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2 min-w-0"><span class="text-2xl">${g.icon||"💬"}</span><span class="truncate">${esc(g.name)}</span></h2>
+      <span class="shrink-0 text-xs font-medium text-indigo-500 bg-indigo-50 dark:bg-indigo-900/40 px-2.5 py-1 rounded-full">${g.msgCount||0} msgs</span>
     </div>
     <div class="px-5 py-4">
-      ${empty ? '<p class="text-sm text-gray-400 py-4 text-center">No new messages in the last 24 hours.</p>' : ""}
+      ${empty ? '<p class="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">No new messages in the last 24 hours.</p>' : ""}
       ${sec("📌 Top Highlights", highlights)}
       ${sec("✅ Action Items & Homework", actions)}
       ${sec("🔗 Links & Materials", links)}
-      ${log ? `<details class="pt-1"><summary class="cursor-pointer text-sm font-semibold text-gray-600">🗣️ Full message log (${g.log.length})</summary><div class="mt-3 border-l-2 border-gray-100">${log}</div></details>` : ""}
+      ${log ? `<details class="pt-1"><summary class="cursor-pointer text-sm font-semibold text-gray-600 dark:text-gray-300">🗣️ Full message log (${g.log.length})</summary><div class="mt-3 border-l-2 border-gray-100 dark:border-gray-700">${log}</div></details>` : ""}
     </div></div>`;
 }
 
 function renderNews(news){
-  if(!news || !news.length) return "";
-  const items = news.map((n,i) => {
-    const region = (n.region||"").toLowerCase().includes("india")
-      ? '<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">🇮🇳 India</span>'
-      : '<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">🌍 World</span>';
-    const sc = n.scores || {};
-    const ov = (typeof n.overall === "number") ? n.overall.toFixed(1) : esc(String(n.overall||""));
-    return `<div class="py-3 ${i < news.length-1 ? 'border-b border-gray-100' : ''}">
-      <div class="flex gap-3 items-start">
-        <div class="shrink-0 w-9 text-center">
-          <div class="text-base font-bold text-indigo-600">${ov}</div>
-          <div class="text-[9px] text-gray-400 -mt-0.5">score</div>
-        </div>
-        <div class="flex-1 min-w-0">
-          <a href="${esc(n.url)}" target="_blank" rel="noopener" class="text-sm font-semibold text-gray-800 hover:text-indigo-600 leading-snug">${esc(n.headline)}</a>
-          <div class="flex items-center gap-2 mt-1 flex-wrap">${region}<span class="text-[10px] text-gray-400">${esc(n.source)}</span></div>
-          <p class="text-sm text-gray-600 leading-snug mt-1">${esc(n.summary)}</p>
-          <div class="flex gap-3 mt-1.5 text-[10px] font-semibold text-gray-500">
-            <span title="Virality">🔥 ${sc.virality ?? "–"}</span>
-            <span title="Credibility">✓ ${sc.credibility ?? "–"}</span>
-            <span title="Importance">★ ${sc.importance ?? "–"}</span>
+  let body;
+  if(!news || !news.length){
+    body = `<p class="text-sm text-gray-400 dark:text-gray-500 text-center py-6">No financial news today.</p>`;
+  } else {
+    body = news.map((n,i) => {
+      const region = (n.region||"").toLowerCase().includes("india")
+        ? '<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">🇮🇳 India</span>'
+        : '<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">🌍 World</span>';
+      const sc = n.scores || {};
+      const ov = (typeof n.overall === "number") ? n.overall.toFixed(1) : esc(String(n.overall||""));
+      return `<div class="py-3 ${i < news.length-1 ? 'border-b border-gray-100 dark:border-gray-700' : ''}">
+        <div class="flex gap-3 items-start">
+          <div class="shrink-0 w-9 text-center">
+            <div class="text-base font-bold text-indigo-600 dark:text-indigo-400">${ov}</div>
+            <div class="text-[9px] text-gray-400 -mt-0.5">score</div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <a href="${esc(n.url)}" target="_blank" rel="noopener" class="text-sm font-semibold text-gray-800 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 leading-snug">${esc(n.headline)}</a>
+            <div class="flex items-center gap-2 mt-1 flex-wrap">${region}<span class="text-[10px] text-gray-400 dark:text-gray-500">${esc(n.source)}</span></div>
+            <p class="text-sm text-gray-600 dark:text-gray-300 leading-snug mt-1">${esc(n.summary)}</p>
+            <div class="flex items-center justify-between mt-1.5">
+              <div class="flex gap-3 text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+                <span title="Virality">🔥 ${sc.virality ?? "–"}</span>
+                <span title="Credibility">✓ ${sc.credibility ?? "–"}</span>
+                <span title="Importance">★ ${sc.importance ?? "–"}</span>
+              </div>
+              <a href="${esc(n.url)}" target="_blank" rel="noopener" class="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline">Read →</a>
+            </div>
           </div>
         </div>
-      </div>
-    </div>`;
-  }).join("");
-  return `<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-5">
-    <div class="px-5 pt-5 pb-4 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-white flex items-center justify-between">
-      <h2 class="text-base font-bold text-gray-800 flex items-center gap-2"><span class="text-2xl">🌍</span> Financial News</h2>
-      <span class="shrink-0 text-xs font-medium text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">ranked</span>
+      </div>`;
+    }).join("");
+  }
+  return `<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-5">
+    <div class="px-5 pt-5 pb-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-emerald-50 to-white dark:from-gray-800 dark:to-gray-800 flex items-center justify-between">
+      <h2 class="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2"><span class="text-2xl">🌍</span> Financial News</h2>
+      <span class="shrink-0 text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/40 px-2.5 py-1 rounded-full">ranked</span>
     </div>
-    <div class="px-5 py-2">${items}</div>
+    <div class="px-5 py-2">${body}</div>
   </div>`;
 }
 
 function renderBriefing(b){
   const totalMsgs = b.groups.reduce((s,g)=>s+(g.msgCount||0),0);
   const totalActions = b.groups.reduce((s,g)=>s+((g.actions||[]).length),0);
+  const isDark = document.documentElement.classList.contains('dark');
   document.getElementById("app").innerHTML = `
-    <div class="mb-6">
-      <h1 class="text-xl font-bold text-gray-800">🎓 CFA Guide</h1>
-      <div class="text-sm text-gray-500 mt-1">📅 ${esc(b.dateLabel)} · <span class="text-emerald-600">🕘 Updated ${esc(b.generatedAt)}</span></div>
+    <div class="flex items-start justify-between mb-6">
+      <div>
+        <h1 class="text-xl font-bold text-gray-800 dark:text-gray-100">🎓 CFA Guide</h1>
+        <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">📅 ${esc(b.dateLabel)} · <span class="text-emerald-600 dark:text-emerald-400">🕘 Updated ${esc(b.generatedAt)}</span></div>
+      </div>
+      <button onclick="toggleTheme()" class="shrink-0 w-9 h-9 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center shadow-sm"><span class="theme-icon text-base">${isDark ? '☀️' : '🌙'}</span></button>
     </div>
     <div class="grid grid-cols-3 gap-3 mb-6">
-      ${stat(b.groups.length,"Groups","text-indigo-600")}
-      ${stat(totalMsgs,"Messages","text-gray-700")}
-      ${stat(totalActions,"To-dos","text-emerald-600")}
+      ${stat(b.groups.length,"Groups","text-indigo-600 dark:text-indigo-400")}
+      ${stat(totalMsgs,"Messages","text-gray-700 dark:text-gray-200")}
+      ${stat(totalActions,"To-dos · tap","text-emerald-600 dark:text-emerald-400",'onclick="toggleTodos()" style="cursor:pointer"')}
+    </div>
+    <div id="todoPanel" class="hidden bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 px-5 py-3 mb-6">
+      <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-1">📋 All Homework — by deadline</h3>
+      ${buildTodos(b)}
     </div>
     <div class="grid md:grid-cols-2 gap-5 items-start">
       <div>${b.groups.map(card).join("")}</div>
