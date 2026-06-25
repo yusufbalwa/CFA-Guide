@@ -37,15 +37,15 @@ Group name: {name}
 Messages (oldest first):
 {messages}"""
 
-NEWS_PROMPT = """Search the web for the most important and recent financial, economic, and FINTECH news from the last 24 hours, covering both India and the world (markets, economy, policy, major companies, RBI/Fed, plus fintech: UPI, digital payments, neobanks, lending startups, crypto/digital assets, fintech regulation). Ensure at least 2-3 of the chosen stories are fintech-specific.
-Pick the top 6-8 stories. For each, write a 1-2 sentence summary in your OWN words (do not copy article text). Include a working source URL.
-Score each 1-10 on:
-- virality: how widely it is being discussed/shared right now
-- credibility: reliability of the reporting sources
-- importance: real financial/economic significance
-Set overall = average of the three, one decimal.
-Return ONLY a JSON object (no prose, no markdown fences), sorted by overall descending:
-{"news":[{"headline":"...","summary":"...","region":"India or World","source":"e.g. Reuters","url":"https://...","scores":{"virality":8,"credibility":9,"importance":7},"overall":8.0}]}"""
+NEWS_PROMPT = """Search the web for the most important and recent financial news from the last 24 hours, covering both India and the world.
+Return TWO sets of stories:
+- Exactly 5 top FINTECH stories (UPI, digital payments, neobanks, lending/wealth startups, crypto & digital assets, payment infrastructure, fintech regulation).
+- Exactly 3 top GENERAL FINANCE stories (markets, economy, central banks/RBI/Fed, major companies, policy).
+For each story: write a 1-2 sentence summary in your OWN words (do not copy article text) and include a working source URL.
+Score each 1-10 on virality (how widely discussed/shared right now), credibility (source reliability), and importance (real financial significance). Set overall = average of the three, one decimal.
+Set "category" to "Fintech" or "Finance" accordingly. Within each category, sort by overall descending.
+Return ONLY a JSON object (no prose, no markdown fences):
+{"news":[{"headline":"...","summary":"...","category":"Fintech or Finance","region":"India or World","source":"e.g. Reuters","url":"https://...","scores":{"virality":8,"credibility":9,"importance":7},"overall":8.0}]}"""
 
 def summarize(name, msgs):
     if not msgs:
