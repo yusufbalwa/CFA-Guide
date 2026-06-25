@@ -18,7 +18,7 @@
     <button id="pinBtn" class="w-full bg-indigo-500 text-white font-semibold rounded-xl py-2 hover:bg-indigo-600">Unlock</button>
   </div>
 </div>
-<div id="app" class="hidden min-h-screen px-4 py-6 max-w-lg mx-auto">
+<div id="app" class="hidden min-h-screen px-4 py-6 max-w-5xl mx-auto">
   <p class="text-center text-gray-400 mt-16">Loading your briefing…</p>
 </div>
 <script>
@@ -106,12 +106,48 @@ function card(g){
     </div></div>`;
 }
 
+function renderNews(news){
+  if(!news || !news.length) return "";
+  const items = news.map((n,i) => {
+    const region = (n.region||"").toLowerCase().includes("india")
+      ? '<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">🇮🇳 India</span>'
+      : '<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">🌍 World</span>';
+    const sc = n.scores || {};
+    const ov = (typeof n.overall === "number") ? n.overall.toFixed(1) : esc(String(n.overall||""));
+    return `<div class="py-3 ${i < news.length-1 ? 'border-b border-gray-100' : ''}">
+      <div class="flex gap-3 items-start">
+        <div class="shrink-0 w-9 text-center">
+          <div class="text-base font-bold text-indigo-600">${ov}</div>
+          <div class="text-[9px] text-gray-400 -mt-0.5">score</div>
+        </div>
+        <div class="flex-1 min-w-0">
+          <a href="${esc(n.url)}" target="_blank" rel="noopener" class="text-sm font-semibold text-gray-800 hover:text-indigo-600 leading-snug">${esc(n.headline)}</a>
+          <div class="flex items-center gap-2 mt-1 flex-wrap">${region}<span class="text-[10px] text-gray-400">${esc(n.source)}</span></div>
+          <p class="text-sm text-gray-600 leading-snug mt-1">${esc(n.summary)}</p>
+          <div class="flex gap-3 mt-1.5 text-[10px] font-semibold text-gray-500">
+            <span title="Virality">🔥 ${sc.virality ?? "–"}</span>
+            <span title="Credibility">✓ ${sc.credibility ?? "–"}</span>
+            <span title="Importance">★ ${sc.importance ?? "–"}</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+  return `<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-5">
+    <div class="px-5 pt-5 pb-4 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-white flex items-center justify-between">
+      <h2 class="text-base font-bold text-gray-800 flex items-center gap-2"><span class="text-2xl">🌍</span> Financial News</h2>
+      <span class="shrink-0 text-xs font-medium text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">ranked</span>
+    </div>
+    <div class="px-5 py-2">${items}</div>
+  </div>`;
+}
+
 function renderBriefing(b){
   const totalMsgs = b.groups.reduce((s,g)=>s+(g.msgCount||0),0);
   const totalActions = b.groups.reduce((s,g)=>s+((g.actions||[]).length),0);
   document.getElementById("app").innerHTML = `
     <div class="mb-6">
-      <h1 class="text-xl font-bold text-gray-800">🎓 Morning Briefing</h1>
+      <h1 class="text-xl font-bold text-gray-800">🎓 CFA Guide</h1>
       <div class="text-sm text-gray-500 mt-1">📅 ${esc(b.dateLabel)} · <span class="text-emerald-600">🕘 Updated ${esc(b.generatedAt)}</span></div>
     </div>
     <div class="grid grid-cols-3 gap-3 mb-6">
@@ -119,7 +155,10 @@ function renderBriefing(b){
       ${stat(totalMsgs,"Messages","text-gray-700")}
       ${stat(totalActions,"To-dos","text-emerald-600")}
     </div>
-    ${b.groups.map(card).join("")}
+    <div class="grid md:grid-cols-2 gap-5 items-start">
+      <div>${b.groups.map(card).join("")}</div>
+      <div>${renderNews(b.news)}</div>
+    </div>
     <p class="text-center text-[11px] text-gray-400 mt-2 mb-6">Auto-refreshes each morning at 9 AM</p>`;
 }
 </script>
