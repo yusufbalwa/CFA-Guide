@@ -22,24 +22,55 @@
   <p class="text-center text-gray-400 mt-16">Loading your briefing…</p>
 </div>
 <script>
-// ====== EDIT THIS: choose your PIN ======
-const PIN = "1234";
-// ========================================
-function unlock(){
+// --- Decryption (parameters match the encrypt() in summarize.py) ---
+function b64ToBytes(b64){ return Uint8Array.from(atob(b64), c => c.charCodeAt(0)); }
+
+async function deriveKey(pin, salt){
+  const baseKey = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(pin), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    { name:"PBKDF2", salt, iterations:200000, hash:"SHA-256" },
+    baseKey, { name:"AES-GCM", length:256 }, false, ["decrypt"]);
+}
+
+async function decryptBriefing(pin){
+  const env = await fetch("briefing.json?t=" + Date.now()).then(r => r.json());
+  const key = await deriveKey(pin, b64ToBytes(env.salt));
+  const plain = await crypto.subtle.decrypt(
+    { name:"AES-GCM", iv: b64ToBytes(env.iv) }, key, b64ToBytes(env.data));
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+function reveal(){
   document.getElementById("gate").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
-  sessionStorage.setItem("unlocked","1");
-  startApp();
 }
-function tryPin(){
-  if(document.getElementById("pin").value === PIN){ unlock(); }
-  else { document.getElementById("pinErr").textContent = "Wrong PIN, try again."; }
-}
-document.getElementById("pinBtn").addEventListener("click", tryPin);
-document.getElementById("pin").addEventListener("keydown", e => { if(e.key==="Enter") tryPin(); });
-if(sessionStorage.getItem("unlocked")==="1"){ unlock(); }
 
-function startApp(){
+async function tryPin(){
+  const pin = document.getElementById("pin").value;
+  document.getElementById("pinErr").textContent = "Checking…";
+  try {
+    const b = await decryptBriefing(pin);
+    sessionStorage.setItem("pin", pin);
+    reveal();
+    renderBriefing(b);
+  } catch (e) {
+    document.getElementById("pinErr").textContent = "Couldn't unlock — wrong PIN, or no briefing yet.";
+  }
+}
+
+document.getElementById("pinBtn").addEventListener("click", tryPin);
+document.getElementById("pin").addEventListener("keydown", e => { if (e.key === "Enter") tryPin(); });
+
+(async () => {
+  const saved = sessionStorage.getItem("pin");
+  if (saved) {
+    try { const b = await decryptBriefing(saved); reveal(); renderBriefing(b); }
+    catch (e) { sessionStorage.removeItem("pin"); }
+  }
+})();
+
+// --- Rendering ---
 const tagColor = t => ({Important:"bg-red-100 text-red-700",Update:"bg-amber-100 text-amber-700",Material:"bg-blue-100 text-blue-700"}[t]||"bg-gray-100 text-gray-600");
 const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
@@ -75,27 +106,21 @@ function card(g){
     </div></div>`;
 }
 
-fetch("briefing.json?t=" + Date.now())
-  .then(r => r.json())
-  .then(b => {
-    const totalMsgs = b.groups.reduce((s,g)=>s+(g.msgCount||0),0);
-    const totalActions = b.groups.reduce((s,g)=>s+((g.actions||[]).length),0);
-    document.getElementById("app").innerHTML = `
-      <div class="mb-6">
-        <h1 class="text-xl font-bold text-gray-800">🎓 Morning Briefing</h1>
-        <div class="text-sm text-gray-500 mt-1">📅 ${esc(b.dateLabel)} · <span class="text-emerald-600">🕘 Updated ${esc(b.generatedAt)}</span></div>
-      </div>
-      <div class="grid grid-cols-3 gap-3 mb-6">
-        ${stat(b.groups.length,"Groups","text-indigo-600")}
-        ${stat(totalMsgs,"Messages","text-gray-700")}
-        ${stat(totalActions,"To-dos","text-emerald-600")}
-      </div>
-      ${b.groups.map(card).join("")}
-      <p class="text-center text-[11px] text-gray-400 mt-2 mb-6">Auto-refreshes each morning at 9 AM</p>`;
-  })
-  .catch(() => {
-    document.getElementById("app").innerHTML = '<p class="text-center text-gray-400 mt-16">No briefing yet — it appears after the first run.</p>';
-  });
+function renderBriefing(b){
+  const totalMsgs = b.groups.reduce((s,g)=>s+(g.msgCount||0),0);
+  const totalActions = b.groups.reduce((s,g)=>s+((g.actions||[]).length),0);
+  document.getElementById("app").innerHTML = `
+    <div class="mb-6">
+      <h1 class="text-xl font-bold text-gray-800">🎓 Morning Briefing</h1>
+      <div class="text-sm text-gray-500 mt-1">📅 ${esc(b.dateLabel)} · <span class="text-emerald-600">🕘 Updated ${esc(b.generatedAt)}</span></div>
+    </div>
+    <div class="grid grid-cols-3 gap-3 mb-6">
+      ${stat(b.groups.length,"Groups","text-indigo-600")}
+      ${stat(totalMsgs,"Messages","text-gray-700")}
+      ${stat(totalActions,"To-dos","text-emerald-600")}
+    </div>
+    ${b.groups.map(card).join("")}
+    <p class="text-center text-[11px] text-gray-400 mt-2 mb-6">Auto-refreshes each morning at 9 AM</p>`;
 }
 </script>
 </body>
