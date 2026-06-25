@@ -1,8 +1,8 @@
-name: Morning Briefing
+name: CFA_Guide
 on:
   schedule:
-    - cron: "30 3 * * *"     # 03:30 UTC = 09:00 AM IST
-  workflow_dispatch:          # lets you also run it manually with one click
+    - cron: "30 3 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: write
