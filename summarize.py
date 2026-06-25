@@ -1,8 +1,11 @@
-import os, json, datetime, re
+import os, json, datetime, re, base64
 from zoneinfo import ZoneInfo
 from telethon.sync import TelegramClient
 from telethon.sessions import StringSession
 import anthropic
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -13,9 +16,10 @@ GROUPS = [
 ]
 # =======================================
 
-API_ID  = int(os.environ["TG_API_ID"])
+API_ID   = int(os.environ["TG_API_ID"])
 API_HASH = os.environ["TG_API_HASH"]
 SESSION  = os.environ["TG_SESSION"]
+PIN      = os.environ["BRIEFING_PIN"]
 ai = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 PROMPT = """You are summarizing messages from an admin-only study group.
@@ -47,6 +51,18 @@ def summarize(name, msgs):
     except Exception:
         return {"highlights": [], "actions": [], "links": []}
 
+def encrypt(text, passphrase):
+    salt = os.urandom(16)
+    kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=200000)
+    key = kdf.derive(passphrase.encode())
+    iv = os.urandom(12)
+    ct = AESGCM(key).encrypt(iv, text.encode(), None)
+    return {
+        "salt": base64.b64encode(salt).decode(),
+        "iv":   base64.b64encode(iv).decode(),
+        "data": base64.b64encode(ct).decode(),
+    }
+
 def main():
     since = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=24)
     out_groups = []
@@ -76,9 +92,10 @@ def main():
         "dateLabel": now.strftime("%A, %B %-d"),
         "groups": out_groups,
     }
+    payload = encrypt(json.dumps(briefing, ensure_ascii=False), PIN)
     os.makedirs("docs", exist_ok=True)
     with open("docs/briefing.json", "w", encoding="utf-8") as f:
-        json.dump(briefing, f, ensure_ascii=False, indent=2)
-    print("Wrote docs/briefing.json")
+        json.dump(payload, f)
+    print("Wrote encrypted docs/briefing.json")
 
 main()
