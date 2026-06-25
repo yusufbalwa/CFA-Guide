@@ -11,8 +11,8 @@ IST = ZoneInfo("Asia/Kolkata")
 
 # ====== EDIT THESE: your 2 groups ======
 GROUPS = [
-    {"id": "g1", "name": "CFA L1 Online 2025/2026", "icon": "📈", "chat": -1003692335693},
-    {"id": "g2", "name": "SSEI", "icon": "🎓", "chat": -1001456537902},
+    {"id": "g1", "name": "CFA L1 Online 2025/2026", "icon": "", "chat": -1003692335693},
+    {"id": "g2", "name": "SSEI", "icon": "", "chat": -1001456537902},
 ]
 # =======================================
 
@@ -63,6 +63,31 @@ def encrypt(text, passphrase):
         "data": base64.b64encode(ct).decode(),
     }
 
+NEWS_PROMPT = """Search the web for the most important and recent financial and economic news from the last 24 hours, covering both India and the world (markets, economy, policy, major companies, RBI/Fed, etc.).
+Pick the top 6-8 stories. For each, write a 1-2 sentence summary in your OWN words (do not copy article text).
+Score each 1-10 on:
+- virality: how widely it is being discussed/shared right now
+- credibility: reliability of the reporting sources
+- importance: real financial/economic significance
+Set overall = average of the three, one decimal.
+Return ONLY a JSON object (no prose, no markdown fences), sorted by overall descending:
+{"news":[{"headline":"...","summary":"...","region":"India or World","source":"e.g. Reuters","url":"https://...","scores":{"virality":8,"credibility":9,"importance":7},"overall":8.0}]}"""
+
+def fetch_news():
+    try:
+        r = ai.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=3000,
+            tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 6}],
+            messages=[{"role": "user", "content": NEWS_PROMPT}],
+        )
+        text = "".join(b.text for b in r.content if getattr(b, "type", "") == "text").strip()
+        i, j = text.find("{"), text.rfind("}")
+        return json.loads(text[i:j+1]).get("news", [])
+    except Exception as e:
+        print("News fetch failed:", e)
+        return []
+
 def main():
     since = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=24)
     out_groups = []
@@ -91,6 +116,7 @@ def main():
         "generatedAt": now.strftime("%-I:%M %p"),
         "dateLabel": now.strftime("%A, %B %-d"),
         "groups": out_groups,
+        "news": fetch_news(),
     }
     payload = encrypt(json.dumps(briefing, ensure_ascii=False), PIN)
     os.makedirs("docs", exist_ok=True)
