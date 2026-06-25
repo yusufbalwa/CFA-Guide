@@ -1,1 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Morning Briefing</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+<div id="gate" class="min-h-screen flex flex-col items-center justify-center px-4">
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 w-full max-w-xs text-center">
+    <div class="text-3xl mb-2">🔒</div>
+    <h1 class="text-lg font-bold text-gray-800 mb-1">Morning Briefing</h1>
+    <p class="text-sm text-gray-500 mb-4">Enter your PIN</p>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off"
+      class="w-full text-center text-lg tracking-widest border border-gray-200 rounded-xl px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+    <p id="pinErr" class="text-xs text-red-500 mb-3 h-4"></p>
+    <button id="pinBtn" class="w-full bg-indigo-500 text-white font-semibold rounded-xl py-2 hover:bg-indigo-600">Unlock</button>
+  </div>
+</div>
+<div id="app" class="hidden min-h-screen px-4 py-6 max-w-lg mx-auto">
+  <p class="text-center text-gray-400 mt-16">Loading your briefing…</p>
+</div>
+<script>
+// ====== EDIT THIS: choose your PIN ======
+const PIN = "1234";
+// ========================================
+function unlock(){
+  document.getElementById("gate").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  sessionStorage.setItem("unlocked","1");
+  startApp();
+}
+function tryPin(){
+  if(document.getElementById("pin").value === PIN){ unlock(); }
+  else { document.getElementById("pinErr").textContent = "Wrong PIN, try again."; }
+}
+document.getElementById("pinBtn").addEventListener("click", tryPin);
+document.getElementById("pin").addEventListener("keydown", e => { if(e.key==="Enter") tryPin(); });
+if(sessionStorage.getItem("unlocked")==="1"){ unlock(); }
 
+function startApp(){
+const tagColor = t => ({Important:"bg-red-100 text-red-700",Update:"bg-amber-100 text-amber-700",Material:"bg-blue-100 text-blue-700"}[t]||"bg-gray-100 text-gray-600");
+const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+function stat(n,l,c){return `<div class="bg-white rounded-xl border border-gray-100 px-3 py-3 text-center shadow-sm"><div class="text-xl font-bold ${c}">${n}</div><div class="text-[11px] text-gray-500 mt-0.5">${l}</div></div>`;}
+
+function card(g){
+  const empty = !(g.highlights?.length||g.actions?.length||g.links?.length||g.log?.length);
+  const highlights = (g.highlights||[]).map(h=>`
+    <div class="flex gap-3 items-start mb-2">
+      <span class="shrink-0 mt-0.5 w-5 h-5 rounded-full bg-indigo-500 text-white text-xs font-bold flex items-center justify-center">${h.rank||"•"}</span>
+      <div><p class="text-sm text-gray-700 leading-snug">${esc(h.text)}</p>
+      <span class="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${tagColor(h.tag)}">${esc(h.tag)}</span></div>
+    </div>`).join("");
+  const actions = (g.actions||[]).map(a=>`
+    <div class="flex items-start gap-3 bg-gray-50 rounded-xl px-3 py-2.5 mb-2">
+      <p class="flex-1 text-sm text-gray-700 leading-snug">${esc(a.text)}</p>
+      <span class="shrink-0 text-[11px] font-semibold px-2 py-1 rounded-lg ${a.urgent?'bg-red-100 text-red-600':'bg-gray-200 text-gray-600'}">${a.urgent?'⚠ ':''}${esc(a.due)}</span>
+    </div>`).join("");
+  const links = (g.links||[]).map(l=>`<a href="${esc(l.url)}" class="flex items-center gap-2 text-sm text-blue-600 hover:underline mb-1.5">🔗 <span class="truncate">${esc(l.label)}</span></a>`).join("");
+  const log = (g.log||[]).map(m=>`<div class="pl-3 mb-3"><span class="text-[11px] font-medium text-gray-400">${esc(m.time)}</span><p class="text-sm text-gray-700 leading-snug">${esc(m.text)}</p></div>`).join("");
+  const sec=(title,body)=> body?`<div class="mb-5"><h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2.5">${title}</h3>${body}</div>`:"";
+  return `<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-5">
+    <div class="px-5 pt-5 pb-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-white flex items-center justify-between">
+      <h2 class="text-base font-bold text-gray-800 flex items-center gap-2 min-w-0"><span class="text-2xl">${g.icon||"💬"}</span><span class="truncate">${esc(g.name)}</span></h2>
+      <span class="shrink-0 text-xs font-medium text-indigo-500 bg-indigo-50 px-2.5 py-1 rounded-full">${g.msgCount||0} msgs</span>
+    </div>
+    <div class="px-5 py-4">
+      ${empty ? '<p class="text-sm text-gray-400 py-4 text-center">No new messages in the last 24 hours.</p>' : ""}
+      ${sec("📌 Top Highlights", highlights)}
+      ${sec("✅ Action Items & Homework", actions)}
+      ${sec("🔗 Links & Materials", links)}
+      ${log ? `<details class="pt-1"><summary class="cursor-pointer text-sm font-semibold text-gray-600">🗣️ Full message log (${g.log.length})</summary><div class="mt-3 border-l-2 border-gray-100">${log}</div></details>` : ""}
+    </div></div>`;
+}
+
+fetch("briefing.json?t=" + Date.now())
+  .then(r => r.json())
+  .then(b => {
+    const totalMsgs = b.groups.reduce((s,g)=>s+(g.msgCount||0),0);
+    const totalActions = b.groups.reduce((s,g)=>s+((g.actions||[]).length),0);
+    document.getElementById("app").innerHTML = `
+      <div class="mb-6">
+        <h1 class="text-xl font-bold text-gray-800">🎓 Morning Briefing</h1>
+        <div class="text-sm text-gray-500 mt-1">📅 ${esc(b.dateLabel)} · <span class="text-emerald-600">🕘 Updated ${esc(b.generatedAt)}</span></div>
+      </div>
+      <div class="grid grid-cols-3 gap-3 mb-6">
+        ${stat(b.groups.length,"Groups","text-indigo-600")}
+        ${stat(totalMsgs,"Messages","text-gray-700")}
+        ${stat(totalActions,"To-dos","text-emerald-600")}
+      </div>
+      ${b.groups.map(card).join("")}
+      <p class="text-center text-[11px] text-gray-400 mt-2 mb-6">Auto-refreshes each morning at 9 AM</p>`;
+  })
+  .catch(() => {
+    document.getElementById("app").innerHTML = '<p class="text-center text-gray-400 mt-16">No briefing yet — it appears after the first run.</p>';
+  });
+}
+</script>
+</body>
+</html>
