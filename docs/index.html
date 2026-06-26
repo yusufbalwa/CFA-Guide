@@ -26,7 +26,7 @@
   <p class="text-center text-gray-400 mt-16">Loading your briefing…</p>
 </div>
 <script>
-// --- Decryption (parameters match encrypt() in summarize.py) ---
+// --- Decryption (matches encrypt() in summarize.py) ---
 function b64ToBytes(b64){ return Uint8Array.from(atob(b64), c => c.charCodeAt(0)); }
 async function deriveKey(pin, salt){
   const baseKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(pin), "PBKDF2", false, ["deriveKey"]);
@@ -38,10 +38,7 @@ async function decryptBriefing(pin){
   const plain = await crypto.subtle.decrypt({ name:"AES-GCM", iv: b64ToBytes(env.iv) }, key, b64ToBytes(env.data));
   return JSON.parse(new TextDecoder().decode(plain));
 }
-function reveal(){
-  document.getElementById("gate").classList.add("hidden");
-  document.getElementById("app").classList.remove("hidden");
-}
+function reveal(){ document.getElementById("gate").classList.add("hidden"); document.getElementById("app").classList.remove("hidden"); }
 async function tryPin(){
   const pin = document.getElementById("pin").value;
   document.getElementById("pinErr").textContent = "Checking…";
@@ -55,7 +52,6 @@ document.getElementById("pin").addEventListener("keydown", e => { if (e.key === 
   if (saved) { try { const b = await decryptBriefing(saved); reveal(); renderBriefing(b); } catch (e) { sessionStorage.removeItem("pin"); } }
 })();
 
-// --- Theme + To-do toggles ---
 function toggleTheme(){
   const dark = document.documentElement.classList.toggle('dark');
   localStorage.setItem('theme', dark ? 'dark' : 'light');
@@ -63,8 +59,8 @@ function toggleTheme(){
 }
 function toggleTodos(){ document.getElementById('todoPanel').classList.toggle('hidden'); }
 
-// ===== CFA Level 1 progress tracker (private to THIS device only) =====
-const SSEI_APP_URL = "sseilearn://";   // if the SSEILearn Mac app has a URL scheme, put it here to launch it
+// ===== CFA Level 1 study tracker (private to THIS device only) =====
+const REVISION_DAYS = 14;
 const CFA_TOPICS = [
   {key:"ethics", name:"Ethical & Professional Standards", weight:"15–20%"},
   {key:"quant",  name:"Quantitative Methods",            weight:"6–9%"},
@@ -77,207 +73,201 @@ const CFA_TOPICS = [
   {key:"alts",   name:"Alternative Investments",         weight:"7–10%"},
   {key:"pm",     name:"Portfolio Management",            weight:"8–12%"},
 ];
-
 const CFA_CURRICULUM = {
   ethics: [
-    "Ethics and Trust in the Investment Profession",
-    "Code of Ethics and Standards of Professional Conduct",
-    "Guidance for Standards I–VII",
-    "Introduction to the Global Investment Performance Standards (GIPS)",
-    "Ethics Application",
+    {name:"Ethics and Trust in the Investment Profession", los:["Why ethics matters and how a framework guides ethical decisions."]},
+    {name:"Code of Ethics and Standards of Professional Conduct", los:["Structure of the Code and the six Standards of Conduct."]},
+    {name:"Guidance for Standards I–VII", los:["Apply each Standard of Professional Conduct to real scenarios."]},
+    {name:"Introduction to the Global Investment Performance Standards (GIPS)", los:["Purpose, scope, and key requirements of GIPS."]},
+    {name:"Ethics Application", los:["Practise applying the Code and Standards to cases."]},
   ],
   quant: [
-    "Rates and Returns",
-    "Time Value of Money in Finance",
-    "Statistical Measures of Asset Returns",
-    "Probability Trees and Conditional Expectations",
-    "Portfolio Mathematics",
-    "Simulation Methods",
-    "Estimation and Inference",
-    "Hypothesis Testing",
-    "Parametric and Non-Parametric Tests of Independence",
-    "Simple Linear Regression",
-    "Introduction to Big Data Techniques",
+    {name:"Rates and Returns", los:["Compute and interpret interest rates and return measures."]},
+    {name:"Time Value of Money in Finance", los:["Value cash flows, bonds, and equities using time value."]},
+    {name:"Statistical Measures of Asset Returns", los:["Summarise returns: central tendency, dispersion, skew, kurtosis."]},
+    {name:"Probability Trees and Conditional Expectations", los:["Use probability trees and Bayesian/conditional reasoning."]},
+    {name:"Portfolio Mathematics", los:["Compute portfolio return, variance, covariance, correlation."]},
+    {name:"Simulation Methods", los:["Apply Monte Carlo and bootstrap simulation."]},
+    {name:"Estimation and Inference", los:["Sampling distributions, the central limit theorem, estimation."]},
+    {name:"Hypothesis Testing", los:["Formulate and test hypotheses on means, variances, correlations."]},
+    {name:"Parametric and Non-Parametric Tests of Independence", los:["Test independence and association in data."]},
+    {name:"Simple Linear Regression", los:["Build, interpret, and assess a single-variable regression."]},
+    {name:"Introduction to Big Data Techniques", los:["Big data, machine learning, and data-analysis basics."]},
   ],
   econ: [
-    "The Firm and Market Structures",
-    "Understanding Business Cycles",
-    "Fiscal Policy",
-    "Monetary Policy",
-    "Introduction to Geopolitics",
-    "International Trade",
-    "Capital Flows and the FX Market",
-    "Exchange Rate Calculations",
+    {name:"The Firm and Market Structures", los:["Demand, supply, costs, and behaviour across market structures."]},
+    {name:"Understanding Business Cycles", los:["Phases of the business cycle and economic indicators."]},
+    {name:"Fiscal Policy", los:["Government spending and taxation tools and their effects."]},
+    {name:"Monetary Policy", los:["Central bank objectives, tools, and transmission."]},
+    {name:"Introduction to Geopolitics", los:["How geopolitics and cooperation affect markets."]},
+    {name:"International Trade", los:["Benefits, restrictions, and effects of trade flows."]},
+    {name:"Capital Flows and the FX Market", los:["Exchange-rate regimes and the FX market."]},
+    {name:"Exchange Rate Calculations", los:["Compute spot, forward, and cross rates; arbitrage."]},
   ],
   fsa: [
-    "Introduction to Financial Statement Analysis",
-    "Analyzing Income Statements",
-    "Analyzing Balance Sheets",
-    "Analyzing Statements of Cash Flows I",
-    "Analyzing Statements of Cash Flows II",
-    "Analysis of Inventories",
-    "Analysis of Long-Term Assets",
-    "Topics in Long-Term Liabilities and Equity",
-    "Analysis of Income Taxes",
-    "Financial Reporting Quality",
-    "Financial Analysis Techniques",
-    "Introduction to Financial Statement Modeling",
+    {name:"Introduction to Financial Statement Analysis", los:["Role and framework of statement analysis."]},
+    {name:"Analyzing Income Statements", los:["Revenue/expense recognition and income-statement analysis."]},
+    {name:"Analyzing Balance Sheets", los:["Assets, liabilities, equity, and measurement."]},
+    {name:"Analyzing Statements of Cash Flows I", los:["Construct and link the cash flow statement."]},
+    {name:"Analyzing Statements of Cash Flows II", los:["Analyse cash flows and free cash flow."]},
+    {name:"Analysis of Inventories", los:["Inventory methods and their statement effects."]},
+    {name:"Analysis of Long-Term Assets", los:["Capitalisation, depreciation, impairment."]},
+    {name:"Topics in Long-Term Liabilities and Equity", los:["Bonds, leases, pensions, and equity reporting."]},
+    {name:"Analysis of Income Taxes", los:["Deferred taxes; effective vs. statutory rates."]},
+    {name:"Financial Reporting Quality", los:["Distinguish high-quality reporting from manipulation."]},
+    {name:"Financial Analysis Techniques", los:["Ratio, common-size, and DuPont analysis."]},
+    {name:"Introduction to Financial Statement Modeling", los:["Build forecasts and basic financial models."]},
   ],
   ci: [
-    "Organizational Forms, Corporate Issuer Features, and Ownership",
-    "Investors and Other Stakeholders",
-    "Corporate Governance: Conflicts, Mechanisms, Risks, and Benefits",
-    "Working Capital and Liquidity",
-    "Capital Investments and Capital Allocation",
-    "Capital Structure",
-    "Business Models",
+    {name:"Organizational Forms, Corporate Issuer Features, and Ownership", los:["Business structures, issuer features, ownership types."]},
+    {name:"Investors and Other Stakeholders", los:["Stakeholder groups and their conflicting interests."]},
+    {name:"Corporate Governance: Conflicts, Mechanisms, Risks, and Benefits", los:["Governance mechanisms, conflicts, risks, benefits."]},
+    {name:"Working Capital and Liquidity", los:["Manage liquidity, working capital, short-term funding."]},
+    {name:"Capital Investments and Capital Allocation", los:["Evaluate projects with NPV, IRR, allocation principles."]},
+    {name:"Capital Structure", los:["Determinants and theories of the financing mix."]},
+    {name:"Business Models", los:["How firms create, deliver, and capture value."]},
   ],
   equity: [
-    "Market Organization and Structure",
-    "Security Market Indexes",
-    "Market Efficiency",
-    "Overview of Equity Securities",
-    "Company Analysis: Past and Present",
-    "Industry and Competitive Analysis",
-    "Company Analysis: Forecasting",
-    "Equity Valuation: Concepts and Basic Tools",
+    {name:"Market Organization and Structure", los:["Functions of markets, intermediaries, asset types."]},
+    {name:"Security Market Indexes", los:["Construction, management, and uses of indexes."]},
+    {name:"Market Efficiency", los:["Forms of efficiency and investment implications."]},
+    {name:"Overview of Equity Securities", los:["Types, features, and risk/return of equities."]},
+    {name:"Company Analysis: Past and Present", los:["Evaluate a firm's historical and current performance."]},
+    {name:"Industry and Competitive Analysis", los:["Analyse industries and competitive positioning."]},
+    {name:"Company Analysis: Forecasting", los:["Forecast revenue, costs, and earnings."]},
+    {name:"Equity Valuation: Concepts and Basic Tools", los:["Apply dividend, FCF, and multiple-based valuation."]},
   ],
   fi: [
-    "Fixed-Income Instrument Features",
-    "Fixed-Income Cash Flows and Types",
-    "Fixed-Income Issuance and Trading",
-    "Fixed-Income Markets for Corporate Issuers",
-    "Fixed-Income Markets for Government Issuers",
-    "Fixed-Income Bond Valuation: Prices and Yields",
-    "Yield and Yield Spread Measures for Fixed-Rate Bonds",
-    "Yield and Yield Spread Measures for Floating-Rate Instruments",
-    "The Term Structure of Interest Rates: Spot, Par, and Forward Curves",
-    "Interest Rate Risk and Return",
-    "Yield-Based Bond Duration Measures and Properties",
-    "Yield-Based Bond Convexity and Portfolio Properties",
-    "Curve-Based and Empirical Fixed-Income Risk Measures",
-    "Credit Risk",
-    "Credit Analysis for Government Issuers",
-    "Credit Analysis for Corporate Issuers",
-    "Fixed-Income Securitization",
-    "Asset-Backed Security (ABS) Instrument and Market Features",
-    "Mortgage-Backed Security (MBS) Instrument and Market Features",
+    {name:"Fixed-Income Instrument Features", los:["Basic features and structures of bonds."]},
+    {name:"Fixed-Income Cash Flows and Types", los:["Cash-flow structures and bond types."]},
+    {name:"Fixed-Income Issuance and Trading", los:["Primary and secondary bond markets."]},
+    {name:"Fixed-Income Markets for Corporate Issuers", los:["Corporate debt instruments and funding."]},
+    {name:"Fixed-Income Markets for Government Issuers", los:["Sovereign and government-related debt."]},
+    {name:"Fixed-Income Bond Valuation: Prices and Yields", los:["Price bonds and relate price to yield."]},
+    {name:"Yield and Yield Spread Measures for Fixed-Rate Bonds", los:["Yield measures and spreads for fixed-rate bonds."]},
+    {name:"Yield and Yield Spread Measures for Floating-Rate Instruments", los:["Yields for floaters and money-market instruments."]},
+    {name:"The Term Structure of Interest Rates: Spot, Par, and Forward Curves", los:["Spot, par, and forward rate relationships."]},
+    {name:"Interest Rate Risk and Return", los:["Sources of bond risk and return."]},
+    {name:"Yield-Based Bond Duration Measures and Properties", los:["Duration as a measure of rate sensitivity."]},
+    {name:"Yield-Based Bond Convexity and Portfolio Properties", los:["Convexity and portfolio-level risk."]},
+    {name:"Curve-Based and Empirical Fixed-Income Risk Measures", los:["Key-rate and empirical duration measures."]},
+    {name:"Credit Risk", los:["Components and drivers of credit risk."]},
+    {name:"Credit Analysis for Government Issuers", los:["Assess sovereign and non-sovereign credit."]},
+    {name:"Credit Analysis for Corporate Issuers", los:["Evaluate corporate creditworthiness."]},
+    {name:"Fixed-Income Securitization", los:["How assets are pooled and securitised."]},
+    {name:"Asset-Backed Security (ABS) Instrument and Market Features", los:["ABS structures and risks."]},
+    {name:"Mortgage-Backed Security (MBS) Instrument and Market Features", los:["MBS and prepayment risk."]},
   ],
   deriv: [
-    "Derivative Instrument and Derivative Market Features",
-    "Forward Commitment and Contingent Claim Features and Instruments",
-    "Derivative Benefits, Risks, and Issuer and Investor Uses",
-    "Arbitrage, Replication, and the Cost of Carry in Pricing Derivatives",
-    "Pricing and Valuation of Forward Contracts",
-    "Pricing and Valuation of Futures Contracts",
-    "Pricing and Valuation of Interest Rates and Other Swaps",
-    "Pricing and Valuation of Options",
-    "Option Replication Using Put–Call Parity",
-    "Valuing a Derivative Using a One-Period Binomial Model",
+    {name:"Derivative Instrument and Derivative Market Features", los:["Basics of derivatives and their markets."]},
+    {name:"Forward Commitment and Contingent Claim Features and Instruments", los:["Forwards/futures/swaps vs. options."]},
+    {name:"Derivative Benefits, Risks, and Issuer and Investor Uses", los:["Why issuers and investors use derivatives."]},
+    {name:"Arbitrage, Replication, and the Cost of Carry in Pricing Derivatives", los:["Pricing via arbitrage and replication."]},
+    {name:"Pricing and Valuation of Forward Contracts", los:["Value forward contracts over their life."]},
+    {name:"Pricing and Valuation of Futures Contracts", los:["How futures pricing differs from forwards."]},
+    {name:"Pricing and Valuation of Interest Rates and Other Swaps", los:["Value interest-rate and other swaps."]},
+    {name:"Pricing and Valuation of Options", los:["Determinants of option value."]},
+    {name:"Option Replication Using Put–Call Parity", los:["Use put-call parity to replicate payoffs."]},
+    {name:"Valuing a Derivative Using a One-Period Binomial Model", los:["Value an option with a one-period binomial tree."]},
   ],
   alts: [
-    "Alternative Investment Features, Methods, and Structures",
-    "Alternative Investment Performance and Returns",
-    "Investments in Private Capital: Equity and Debt",
-    "Real Estate and Infrastructure",
-    "Natural Resources",
-    "Hedge Funds",
-    "Introduction to Digital Assets",
+    {name:"Alternative Investment Features, Methods, and Structures", los:["Characteristics and structures of alternatives."]},
+    {name:"Alternative Investment Performance and Returns", los:["Measure and appraise alternative returns."]},
+    {name:"Investments in Private Capital: Equity and Debt", los:["Private equity and private debt investing."]},
+    {name:"Real Estate and Infrastructure", los:["Features of real estate and infrastructure assets."]},
+    {name:"Natural Resources", los:["Commodities, farmland, and timberland."]},
+    {name:"Hedge Funds", los:["Hedge fund strategies and characteristics."]},
+    {name:"Introduction to Digital Assets", los:["Crypto and digital assets as investments."]},
   ],
   pm: [
-    "Portfolio Risk and Return: Part I",
-    "Portfolio Risk and Return: Part II",
-    "Portfolio Management: An Overview",
-    "Basics of Portfolio Planning and Construction",
-    "The Behavioral Biases of Individuals",
-    "Introduction to Risk Management",
+    {name:"Portfolio Risk and Return: Part I", los:["Risk-return basics and the efficient frontier."]},
+    {name:"Portfolio Risk and Return: Part II", los:["CAPM, the SML, and performance measures."]},
+    {name:"Portfolio Management: An Overview", los:["The portfolio management process and participants."]},
+    {name:"Basics of Portfolio Planning and Construction", los:["The IPS and constructing portfolios."]},
+    {name:"The Behavioral Biases of Individuals", los:["Common behavioural biases and their effects."]},
+    {name:"Introduction to Risk Management", los:["A framework for identifying and managing risk."]},
   ],
 };
 
-function loadCurriculum(){
-  const d = loadCFA();
-  CFA_TOPICS.forEach(tp => {
-    const t = topicState(d, tp.key);
-    const have = new Set(t.chapters.map(c => c.name));
-    (CFA_CURRICULUM[tp.key]||[]).forEach(name => { if(!have.has(name)) t.chapters.push({ name, done:false }); });
-  });
-  saveCFA(d); renderTracker();
+function loadCFA(){ try { return JSON.parse(localStorage.getItem("cfaV2") || "{}"); } catch(e){ return {}; } }
+function saveCFA(d){ try { localStorage.setItem("cfaV2", JSON.stringify(d)); } catch(e){} }
+function topicState(d, key){ if(!d[key]) d[key] = { modules: [] }; return d[key]; }
+function seedCFA(){
+  const d = {};
+  CFA_TOPICS.forEach(tp => d[tp.key] = { modules: (CFA_CURRICULUM[tp.key]||[]).map(m => ({ name:m.name, los:(m.los||[]).slice(), done:false, checkedAt:null, notes:"" })) });
+  return d;
 }
-
-function loadCFA(){ try { return JSON.parse(localStorage.getItem("cfaProgress") || "{}"); } catch(e){ return {}; } }
-function saveCFA(d){ try { localStorage.setItem("cfaProgress", JSON.stringify(d)); } catch(e){} }
-function topicState(d, key){ if(!d[key]) d[key] = { chapters: [], notes: "" }; return d[key]; }
-
 function toggleCFA(){ document.getElementById("cfaBody").classList.toggle("hidden"); }
-function openSSEI(){ window.location.href = SSEI_APP_URL; }
-
-function cfaAdd(key){
-  const inp = document.getElementById("add-"+key);
-  const name = (inp.value||"").trim();
-  if(!name) return;
-  const d = loadCFA(); topicState(d, key).chapters.push({ name, done:false }); saveCFA(d);
-  inp.value = ""; renderTracker(); document.getElementById("add-"+key).focus();
-}
-function cfaToggle(key, i){
-  const d = loadCFA(); const t = topicState(d, key);
-  if(t.chapters[i]){ t.chapters[i].done = !t.chapters[i].done; saveCFA(d); renderTracker(); }
-}
-function cfaDel(key, i){
-  const d = loadCFA(); topicState(d, key).chapters.splice(i,1); saveCFA(d); renderTracker();
-}
-function cfaNotes(key, val){
-  const d = loadCFA(); topicState(d, key).notes = val; saveCFA(d);
-}
+function isDue(m){ return m.done && m.checkedAt && (Date.now() - m.checkedAt >= REVISION_DAYS*86400000); }
+function cfaToggle(key, i){ const d=loadCFA(); const m=topicState(d,key).modules[i]; if(!m) return; m.done=!m.done; m.checkedAt=m.done?Date.now():null; saveCFA(d); renderTracker(); }
+function cfaRevised(key, i){ const d=loadCFA(); const m=topicState(d,key).modules[i]; if(!m) return; m.checkedAt=Date.now(); saveCFA(d); renderTracker(); }
+function cfaDel(key, i){ const d=loadCFA(); topicState(d,key).modules.splice(i,1); saveCFA(d); renderTracker(); }
+function cfaNotes(key, i, val){ const d=loadCFA(); const m=topicState(d,key).modules[i]; if(m){ m.notes=val; saveCFA(d);} }
+function cfaAddModule(key){ const inp=document.getElementById("add-"+key); const name=(inp.value||"").trim(); if(!name) return; const d=loadCFA(); topicState(d,key).modules.push({name, los:[], done:false, checkedAt:null, notes:""}); saveCFA(d); inp.value=""; renderTracker(); const el=document.getElementById("add-"+key); if(el) el.focus(); }
+function cfaAddLos(key, i){ const inp=document.getElementById("los-"+key+"-"+i); const v=(inp.value||"").trim(); if(!v) return; const d=loadCFA(); const m=topicState(d,key).modules[i]; if(m){ (m.los=m.los||[]).push(v); saveCFA(d); renderTracker(); } }
+function cfaDelLos(key, i, j){ const d=loadCFA(); const m=topicState(d,key).modules[i]; if(m&&m.los){ m.los.splice(j,1); saveCFA(d); renderTracker(); } }
 
 function renderTracker(){
   const body = document.getElementById("cfaBody");
   if(!body) return;
-  if(localStorage.getItem("cfaProgress") === null){
-    const seed = {};
-    CFA_TOPICS.forEach(tp => seed[tp.key] = { chapters:(CFA_CURRICULUM[tp.key]||[]).map(n=>({name:n, done:false})), notes:"" });
-    saveCFA(seed);
-  }
+  if(localStorage.getItem("cfaV2") === null){ saveCFA(seedCFA()); }
   const d = loadCFA();
-  let totalDone = 0, totalAll = 0;
+  let totalDone=0, totalAll=0, dueCount=0;
   const blocks = CFA_TOPICS.map(tp => {
-    const t = d[tp.key] || { chapters: [], notes: "" };
-    const done = t.chapters.filter(c => c.done).length;
-    const all = t.chapters.length;
-    totalDone += done; totalAll += all;
+    const mods = (d[tp.key] || {modules:[]}).modules || [];
+    const done = mods.filter(m=>m.done).length, all = mods.length;
+    const tdue = mods.filter(isDue).length;
+    totalDone+=done; totalAll+=all; dueCount+=tdue;
     const pct = all ? Math.round(done/all*100) : 0;
-    const chapters = t.chapters.map((c,i) => `
-      <div class="flex items-center gap-2 py-1">
-        <input type="checkbox" ${c.done?"checked":""} onclick="cfaToggle('${tp.key}',${i})" class="w-4 h-4 accent-indigo-500">
-        <span class="flex-1 text-sm ${c.done?'line-through text-gray-400':'text-gray-700 dark:text-gray-200'}">${esc(c.name)}</span>
-        <button onclick="cfaDel('${tp.key}',${i})" class="text-gray-300 hover:text-red-500 text-sm px-1">✕</button>
-      </div>`).join("");
-    return `<details class="border-b border-gray-100 dark:border-gray-700 py-2">
+    const rows = mods.map((m,i) => {
+      const due = isDue(m);
+      const los = (m.los||[]).map((l,j)=>`<li class="flex items-start gap-1 text-[12px] text-gray-500 dark:text-gray-400"><span>•</span><span class="flex-1">${esc(l)}</span><button onclick="cfaDelLos('${tp.key}',${i},${j})" class="text-gray-300 hover:text-red-500">✕</button></li>`).join("");
+      const watched = m.checkedAt ? new Date(m.checkedAt).toLocaleDateString() : "";
+      return `<details class="border-b border-gray-100 dark:border-gray-700 py-1.5">
+        <summary class="cursor-pointer flex items-center gap-2 list-none">
+          <input type="checkbox" ${m.done?"checked":""} onclick="event.stopPropagation();cfaToggle('${tp.key}',${i})" class="w-4 h-4 accent-indigo-500">
+          <span class="flex-1 text-sm ${m.done?'text-gray-400':'text-gray-700 dark:text-gray-200'}">${esc(m.name)}</span>
+          ${due?'<span class="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">🔁 revise</span>':''}
+        </summary>
+        <div class="pl-6 pr-1 pb-2">
+          ${los?`<ul class="mt-1 space-y-0.5">${los}</ul>`:'<p class="text-[11px] text-gray-400 mt-1">No learning outcomes yet.</p>'}
+          <div class="flex gap-2 mt-1">
+            <input id="los-${tp.key}-${i}" placeholder="Add a learning outcome…" class="flex-1 text-[12px] border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-2 py-1" onkeydown="if(event.key==='Enter')cfaAddLos('${tp.key}',${i})">
+            <button onclick="cfaAddLos('${tp.key}',${i})" class="text-[12px] font-semibold text-indigo-600 dark:text-indigo-400 px-1">+LO</button>
+          </div>
+          <textarea placeholder="Lecture notes…" onchange="cfaNotes('${tp.key}',${i},this.value)" rows="2" class="w-full mt-2 text-[13px] text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 rounded-lg px-2 py-1 border border-transparent focus:border-indigo-300 focus:outline-none">${esc(m.notes||'')}</textarea>
+          <div class="flex items-center justify-between mt-1 gap-2">
+            <span class="text-[10px] text-gray-400">${m.done&&watched?('Ticked '+watched):''}</span>
+            <span class="flex items-center gap-3">
+              ${due?`<button onclick="cfaRevised('${tp.key}',${i})" class="text-[11px] font-semibold text-amber-700">Mark revised ✓</button>`:''}
+              <button onclick="cfaDel('${tp.key}',${i})" class="text-[11px] text-gray-300 hover:text-red-500">remove</button>
+            </span>
+          </div>
+        </div>
+      </details>`;
+    }).join("");
+    return `<details class="border border-gray-100 dark:border-gray-700 rounded-xl px-3 py-2 mb-2">
       <summary class="cursor-pointer flex items-center justify-between gap-2">
         <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">${esc(tp.name)} <span class="text-[10px] font-normal text-gray-400">${tp.weight}</span></span>
-        <span class="text-[11px] font-semibold text-gray-500 dark:text-gray-400">${done}/${all}</span>
+        <span class="text-[11px] font-semibold text-gray-500 dark:text-gray-400">${tdue?`<span class="text-amber-600">🔁${tdue}</span> · `:''}${done}/${all}</span>
       </summary>
       <div class="mt-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden"><div class="h-full bg-emerald-500" style="width:${pct}%"></div></div>
-      <div class="mt-2">${chapters || '<p class="text-[11px] text-gray-400 py-1">No chapters yet — add the ones you watch in SSEILearn.</p>'}</div>
-      <div class="flex gap-2 mt-1">
-        <input id="add-${tp.key}" placeholder="Add a chapter/lecture you watched…" class="flex-1 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-2 py-1" onkeydown="if(event.key==='Enter')cfaAdd('${tp.key}')">
-        <button onclick="cfaAdd('${tp.key}')" class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 px-2">Add</button>
+      <div class="mt-2">${rows||'<p class="text-[11px] text-gray-400 py-1">No modules.</p>'}</div>
+      <div class="flex gap-2 mt-2">
+        <input id="add-${tp.key}" placeholder="Add a custom module…" class="flex-1 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-2 py-1" onkeydown="if(event.key==='Enter')cfaAddModule('${tp.key}')">
+        <button onclick="cfaAddModule('${tp.key}')" class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 px-2">Add</button>
       </div>
-      <input value="${esc(t.notes||'').replace(/"/g,'&quot;')}" placeholder="Notes for this topic…" onchange="cfaNotes('${tp.key}', this.value)" class="w-full mt-2 text-[13px] text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 rounded-lg px-2 py-1 border border-transparent focus:border-indigo-300 focus:outline-none">
     </details>`;
   }).join("");
   const overall = totalAll ? Math.round(totalDone/totalAll*100) : 0;
   document.getElementById("cfaPercent").textContent = overall + "%  (" + totalDone + "/" + totalAll + ")";
   document.getElementById("cfaBar").style.width = overall + "%";
-  body.innerHTML = `
-    <div class="flex gap-2 mb-3">
-      <button onclick="openSSEI()" class="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-xl py-2">▶ Open SSEILearn</button>
-      <button onclick="loadCurriculum()" class="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-semibold rounded-xl py-2">↻ Load CFA curriculum</button>
-    </div>
-    ${blocks}
-    <p class="text-[10px] text-gray-400 mt-3 leading-snug">🔒 Your progress lives only in this browser on this device — it's never uploaded, never written to the public page, and the lectures stay inside the SSEILearn app.</p>`;
+  const rev = document.getElementById("cfaRevise");
+  if(rev) rev.textContent = dueCount ? `🔁 ${dueCount} module${dueCount>1?'s':''} due for revision` : '';
+  body.innerHTML = `${blocks}
+    <p class="text-[10px] text-gray-400 mt-3 leading-snug">🔒 Saved only in this browser on this device — never uploaded, never in the public page. Lectures stay inside the SSEILearn app. Modules ticked over ${REVISION_DAYS} days ago are flagged 🔁 to revise.</p>`;
 }
 
-// --- Rendering ---
 const tagColor = t => ({Important:"bg-red-100 text-red-700",Update:"bg-amber-100 text-amber-700",Material:"bg-blue-100 text-blue-700"}[t]||"bg-gray-100 text-gray-600");
 const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
@@ -290,10 +280,8 @@ function buildTodos(b){
   if(!todos.length) return `<p class="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No homework due right now 🎉</p>`;
   return todos.map(t => `<div class="flex items-start gap-3 py-2.5 border-b border-gray-100 dark:border-gray-700 last:border-0">
       <span class="shrink-0 text-[11px] font-semibold px-2 py-1 rounded-lg ${t.urgent?'bg-red-100 text-red-600':'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}">${t.urgent?'⚠ ':''}${esc(t.due)}</span>
-      <div class="flex-1 min-w-0">
-        <p class="text-sm text-gray-700 dark:text-gray-200 leading-snug">${esc(t.text)}</p>
-        <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">${esc(t.icon||"")} ${esc(t.group)}</p>
-      </div>
+      <div class="flex-1 min-w-0"><p class="text-sm text-gray-700 dark:text-gray-200 leading-snug">${esc(t.text)}</p>
+        <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">${esc(t.icon||"")} ${esc(t.group)}</p></div>
     </div>`).join("");
 }
 
@@ -355,13 +343,11 @@ function newsItem(n, last){
     </div>
   </div>`;
 }
-
 function newsSection(title, items){
   if(!items.length) return "";
   const rows = items.map((n,i) => newsItem(n, i === items.length-1)).join("");
   return `<div><h3 class="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide pt-3 pb-1">${title}</h3>${rows}</div>`;
 }
-
 function renderNews(news){
   let body;
   if(!news || !news.length){
@@ -370,11 +356,9 @@ function renderNews(news){
     const byScore = (a,b) => (b.overall||0) - (a.overall||0);
     const fintech = news.filter(n => (n.category||"").toLowerCase().includes("fintech")).sort(byScore);
     const finance = news.filter(n => !(n.category||"").toLowerCase().includes("fintech")).sort(byScore);
-    if(!fintech.length && !finance.length){
-      body = news.map((n,i) => newsItem(n, i === news.length-1)).join("");
-    } else {
-      body = newsSection("💳 Top Fintech", fintech) + newsSection("📊 Top Finance", finance);
-    }
+    body = (!fintech.length && !finance.length)
+      ? news.map((n,i) => newsItem(n, i === news.length-1)).join("")
+      : newsSection("💳 Top Fintech", fintech) + newsSection("📊 Top Finance", finance);
   }
   return `<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-5">
     <div class="px-5 pt-5 pb-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-emerald-50 to-white dark:from-gray-800 dark:to-gray-800 flex items-center justify-between">
@@ -413,6 +397,7 @@ function renderBriefing(b){
           <span id="cfaPercent" class="text-sm font-bold text-indigo-600 dark:text-indigo-400">0%</span>
         </div>
         <div class="mt-2 h-2 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden"><div id="cfaBar" class="h-full bg-indigo-500 transition-all" style="width:0%"></div></div>
+        <div id="cfaRevise" class="mt-1 text-[11px] font-semibold text-amber-600"></div>
         <div class="mt-1 text-[11px] text-gray-400">tap to expand · tracked privately on this device</div>
       </button>
       <div id="cfaBody" class="hidden px-5 pb-4"></div>
