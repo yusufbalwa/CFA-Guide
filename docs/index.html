@@ -63,6 +63,220 @@ function toggleTheme(){
 }
 function toggleTodos(){ document.getElementById('todoPanel').classList.toggle('hidden'); }
 
+// ===== CFA Level 1 progress tracker (private to THIS device only) =====
+const SSEI_APP_URL = "sseilearn://";   // if the SSEILearn Mac app has a URL scheme, put it here to launch it
+const CFA_TOPICS = [
+  {key:"ethics", name:"Ethical & Professional Standards", weight:"15–20%"},
+  {key:"quant",  name:"Quantitative Methods",            weight:"6–9%"},
+  {key:"econ",   name:"Economics",                       weight:"6–9%"},
+  {key:"fsa",    name:"Financial Statement Analysis",    weight:"11–14%"},
+  {key:"ci",     name:"Corporate Issuers",               weight:"6–9%"},
+  {key:"equity", name:"Equity Investments",              weight:"11–14%"},
+  {key:"fi",     name:"Fixed Income",                    weight:"11–14%"},
+  {key:"deriv",  name:"Derivatives",                     weight:"5–8%"},
+  {key:"alts",   name:"Alternative Investments",         weight:"7–10%"},
+  {key:"pm",     name:"Portfolio Management",            weight:"8–12%"},
+];
+
+const CFA_CURRICULUM = {
+  ethics: [
+    "Ethics and Trust in the Investment Profession",
+    "Code of Ethics and Standards of Professional Conduct",
+    "Guidance for Standards I–VII",
+    "Introduction to the Global Investment Performance Standards (GIPS)",
+    "Ethics Application",
+  ],
+  quant: [
+    "Rates and Returns",
+    "Time Value of Money in Finance",
+    "Statistical Measures of Asset Returns",
+    "Probability Trees and Conditional Expectations",
+    "Portfolio Mathematics",
+    "Simulation Methods",
+    "Estimation and Inference",
+    "Hypothesis Testing",
+    "Parametric and Non-Parametric Tests of Independence",
+    "Simple Linear Regression",
+    "Introduction to Big Data Techniques",
+  ],
+  econ: [
+    "The Firm and Market Structures",
+    "Understanding Business Cycles",
+    "Fiscal Policy",
+    "Monetary Policy",
+    "Introduction to Geopolitics",
+    "International Trade",
+    "Capital Flows and the FX Market",
+    "Exchange Rate Calculations",
+  ],
+  fsa: [
+    "Introduction to Financial Statement Analysis",
+    "Analyzing Income Statements",
+    "Analyzing Balance Sheets",
+    "Analyzing Statements of Cash Flows I",
+    "Analyzing Statements of Cash Flows II",
+    "Analysis of Inventories",
+    "Analysis of Long-Term Assets",
+    "Topics in Long-Term Liabilities and Equity",
+    "Analysis of Income Taxes",
+    "Financial Reporting Quality",
+    "Financial Analysis Techniques",
+    "Introduction to Financial Statement Modeling",
+  ],
+  ci: [
+    "Organizational Forms, Corporate Issuer Features, and Ownership",
+    "Investors and Other Stakeholders",
+    "Corporate Governance: Conflicts, Mechanisms, Risks, and Benefits",
+    "Working Capital and Liquidity",
+    "Capital Investments and Capital Allocation",
+    "Capital Structure",
+    "Business Models",
+  ],
+  equity: [
+    "Market Organization and Structure",
+    "Security Market Indexes",
+    "Market Efficiency",
+    "Overview of Equity Securities",
+    "Company Analysis: Past and Present",
+    "Industry and Competitive Analysis",
+    "Company Analysis: Forecasting",
+    "Equity Valuation: Concepts and Basic Tools",
+  ],
+  fi: [
+    "Fixed-Income Instrument Features",
+    "Fixed-Income Cash Flows and Types",
+    "Fixed-Income Issuance and Trading",
+    "Fixed-Income Markets for Corporate Issuers",
+    "Fixed-Income Markets for Government Issuers",
+    "Fixed-Income Bond Valuation: Prices and Yields",
+    "Yield and Yield Spread Measures for Fixed-Rate Bonds",
+    "Yield and Yield Spread Measures for Floating-Rate Instruments",
+    "The Term Structure of Interest Rates: Spot, Par, and Forward Curves",
+    "Interest Rate Risk and Return",
+    "Yield-Based Bond Duration Measures and Properties",
+    "Yield-Based Bond Convexity and Portfolio Properties",
+    "Curve-Based and Empirical Fixed-Income Risk Measures",
+    "Credit Risk",
+    "Credit Analysis for Government Issuers",
+    "Credit Analysis for Corporate Issuers",
+    "Fixed-Income Securitization",
+    "Asset-Backed Security (ABS) Instrument and Market Features",
+    "Mortgage-Backed Security (MBS) Instrument and Market Features",
+  ],
+  deriv: [
+    "Derivative Instrument and Derivative Market Features",
+    "Forward Commitment and Contingent Claim Features and Instruments",
+    "Derivative Benefits, Risks, and Issuer and Investor Uses",
+    "Arbitrage, Replication, and the Cost of Carry in Pricing Derivatives",
+    "Pricing and Valuation of Forward Contracts",
+    "Pricing and Valuation of Futures Contracts",
+    "Pricing and Valuation of Interest Rates and Other Swaps",
+    "Pricing and Valuation of Options",
+    "Option Replication Using Put–Call Parity",
+    "Valuing a Derivative Using a One-Period Binomial Model",
+  ],
+  alts: [
+    "Alternative Investment Features, Methods, and Structures",
+    "Alternative Investment Performance and Returns",
+    "Investments in Private Capital: Equity and Debt",
+    "Real Estate and Infrastructure",
+    "Natural Resources",
+    "Hedge Funds",
+    "Introduction to Digital Assets",
+  ],
+  pm: [
+    "Portfolio Risk and Return: Part I",
+    "Portfolio Risk and Return: Part II",
+    "Portfolio Management: An Overview",
+    "Basics of Portfolio Planning and Construction",
+    "The Behavioral Biases of Individuals",
+    "Introduction to Risk Management",
+  ],
+};
+
+function loadCurriculum(){
+  const d = loadCFA();
+  CFA_TOPICS.forEach(tp => {
+    const t = topicState(d, tp.key);
+    const have = new Set(t.chapters.map(c => c.name));
+    (CFA_CURRICULUM[tp.key]||[]).forEach(name => { if(!have.has(name)) t.chapters.push({ name, done:false }); });
+  });
+  saveCFA(d); renderTracker();
+}
+
+function loadCFA(){ try { return JSON.parse(localStorage.getItem("cfaProgress") || "{}"); } catch(e){ return {}; } }
+function saveCFA(d){ try { localStorage.setItem("cfaProgress", JSON.stringify(d)); } catch(e){} }
+function topicState(d, key){ if(!d[key]) d[key] = { chapters: [], notes: "" }; return d[key]; }
+
+function toggleCFA(){ document.getElementById("cfaBody").classList.toggle("hidden"); }
+function openSSEI(){ window.location.href = SSEI_APP_URL; }
+
+function cfaAdd(key){
+  const inp = document.getElementById("add-"+key);
+  const name = (inp.value||"").trim();
+  if(!name) return;
+  const d = loadCFA(); topicState(d, key).chapters.push({ name, done:false }); saveCFA(d);
+  inp.value = ""; renderTracker(); document.getElementById("add-"+key).focus();
+}
+function cfaToggle(key, i){
+  const d = loadCFA(); const t = topicState(d, key);
+  if(t.chapters[i]){ t.chapters[i].done = !t.chapters[i].done; saveCFA(d); renderTracker(); }
+}
+function cfaDel(key, i){
+  const d = loadCFA(); topicState(d, key).chapters.splice(i,1); saveCFA(d); renderTracker();
+}
+function cfaNotes(key, val){
+  const d = loadCFA(); topicState(d, key).notes = val; saveCFA(d);
+}
+
+function renderTracker(){
+  const body = document.getElementById("cfaBody");
+  if(!body) return;
+  if(localStorage.getItem("cfaProgress") === null){
+    const seed = {};
+    CFA_TOPICS.forEach(tp => seed[tp.key] = { chapters:(CFA_CURRICULUM[tp.key]||[]).map(n=>({name:n, done:false})), notes:"" });
+    saveCFA(seed);
+  }
+  const d = loadCFA();
+  let totalDone = 0, totalAll = 0;
+  const blocks = CFA_TOPICS.map(tp => {
+    const t = d[tp.key] || { chapters: [], notes: "" };
+    const done = t.chapters.filter(c => c.done).length;
+    const all = t.chapters.length;
+    totalDone += done; totalAll += all;
+    const pct = all ? Math.round(done/all*100) : 0;
+    const chapters = t.chapters.map((c,i) => `
+      <div class="flex items-center gap-2 py-1">
+        <input type="checkbox" ${c.done?"checked":""} onclick="cfaToggle('${tp.key}',${i})" class="w-4 h-4 accent-indigo-500">
+        <span class="flex-1 text-sm ${c.done?'line-through text-gray-400':'text-gray-700 dark:text-gray-200'}">${esc(c.name)}</span>
+        <button onclick="cfaDel('${tp.key}',${i})" class="text-gray-300 hover:text-red-500 text-sm px-1">✕</button>
+      </div>`).join("");
+    return `<details class="border-b border-gray-100 dark:border-gray-700 py-2">
+      <summary class="cursor-pointer flex items-center justify-between gap-2">
+        <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">${esc(tp.name)} <span class="text-[10px] font-normal text-gray-400">${tp.weight}</span></span>
+        <span class="text-[11px] font-semibold text-gray-500 dark:text-gray-400">${done}/${all}</span>
+      </summary>
+      <div class="mt-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden"><div class="h-full bg-emerald-500" style="width:${pct}%"></div></div>
+      <div class="mt-2">${chapters || '<p class="text-[11px] text-gray-400 py-1">No chapters yet — add the ones you watch in SSEILearn.</p>'}</div>
+      <div class="flex gap-2 mt-1">
+        <input id="add-${tp.key}" placeholder="Add a chapter/lecture you watched…" class="flex-1 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-2 py-1" onkeydown="if(event.key==='Enter')cfaAdd('${tp.key}')">
+        <button onclick="cfaAdd('${tp.key}')" class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 px-2">Add</button>
+      </div>
+      <input value="${esc(t.notes||'').replace(/"/g,'&quot;')}" placeholder="Notes for this topic…" onchange="cfaNotes('${tp.key}', this.value)" class="w-full mt-2 text-[13px] text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 rounded-lg px-2 py-1 border border-transparent focus:border-indigo-300 focus:outline-none">
+    </details>`;
+  }).join("");
+  const overall = totalAll ? Math.round(totalDone/totalAll*100) : 0;
+  document.getElementById("cfaPercent").textContent = overall + "%  (" + totalDone + "/" + totalAll + ")";
+  document.getElementById("cfaBar").style.width = overall + "%";
+  body.innerHTML = `
+    <div class="flex gap-2 mb-3">
+      <button onclick="openSSEI()" class="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-xl py-2">▶ Open SSEILearn</button>
+      <button onclick="loadCurriculum()" class="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-semibold rounded-xl py-2">↻ Load CFA curriculum</button>
+    </div>
+    ${blocks}
+    <p class="text-[10px] text-gray-400 mt-3 leading-snug">🔒 Your progress lives only in this browser on this device — it's never uploaded, never written to the public page, and the lectures stay inside the SSEILearn app.</p>`;
+}
+
 // --- Rendering ---
 const tagColor = t => ({Important:"bg-red-100 text-red-700",Update:"bg-amber-100 text-amber-700",Material:"bg-blue-100 text-blue-700"}[t]||"bg-gray-100 text-gray-600");
 const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -192,11 +406,23 @@ function renderBriefing(b){
       <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-1">📋 All Homework — by deadline</h3>
       ${buildTodos(b)}
     </div>
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
+      <button onclick="toggleCFA()" class="w-full text-left px-5 py-4">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">📚 CFA Level 1 Progress</h2>
+          <span id="cfaPercent" class="text-sm font-bold text-indigo-600 dark:text-indigo-400">0%</span>
+        </div>
+        <div class="mt-2 h-2 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden"><div id="cfaBar" class="h-full bg-indigo-500 transition-all" style="width:0%"></div></div>
+        <div class="mt-1 text-[11px] text-gray-400">tap to expand · tracked privately on this device</div>
+      </button>
+      <div id="cfaBody" class="hidden px-5 pb-4"></div>
+    </div>
     <div class="grid md:grid-cols-2 gap-5 items-start">
       <div>${b.groups.map(card).join("")}</div>
       <div>${renderNews(b.news)}</div>
     </div>
     <p class="text-center text-[11px] text-gray-400 mt-2 mb-6">Auto-refreshes each morning at 9 AM</p>`;
+  renderTracker();
 }
 </script>
 </body>
